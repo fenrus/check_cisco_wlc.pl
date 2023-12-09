@@ -69,6 +69,7 @@ my $o_timeout = 5;
 my $o_warn = undef;
 my $o_crit = undef;
 my $o_category = undef;
+my $o_credentialsfile = undef;
 
 # FUNCTIONS
 
@@ -79,7 +80,7 @@ sub p_version ()
 
 sub p_usage ()
 {
-	print "$PROGNAME usage: $0 [-v] -H <host> -C <snmp_community> [-p <port>] -w <warning_level> -c <critical_level> [-t <timeout>] [-V] -x <category>\n";
+	print "$PROGNAME usage: $0 [-v] -H <host> -C <snmp_community> -f <credentialsfile> [-p <port>] -w <warning_level> -c <critical_level> [-t <timeout>] [-V] -x <category>\n";
 }
 
 sub p_help ()
@@ -88,7 +89,6 @@ sub p_help ()
 	print "Copyright (C) 2013 Stefan Heumader <stefan\@heumader.at>\n\n";
 	p_usage();
 	print <<EOF;
-
 -h, --help
 	print this help message
 -V, --version
@@ -98,7 +98,9 @@ sub p_help ()
 -H, --hostname=HOST
 	name or IP address of host to check
 -C, --community=COMMUNITY NAME
-	community name for the host's SNMP agent
+	community name for the host's SNMP agent (Do not use in combination with -f)
+-f, --credentialsfile=Credentials file path
+	file containing the secret snmp community, file syntax is "community:public" (Do not use in combination with -C)
 -P, --port=PORT
 	SNMP port (default 161)
 -w, --warn=INTEGER
@@ -131,6 +133,7 @@ sub check_options ()
 		'H:s'	=> \$o_host,		'hostname:s'	=> \$o_host,
 		'p:i'	=> \$o_port,		'port:i'	=> \$o_port,
 		'C:s'	=> \$o_community,	'community:s'	=> \$o_community,
+		'f:s'	=> \$o_credentialsfile,	'credentialsfile:s' => \$o_credentialsfile,
 		't:i'   => \$o_timeout,		'timeout:i'	=> \$o_timeout,
 		'w:s'	=> \$o_warn,		'warn:s'	=> \$o_warn,
 		'c:s'	=> \$o_crit,		'critical:s'	=> \$o_crit,
@@ -147,6 +150,26 @@ sub check_options ()
 	{
 		p_version();
 		exit $states{"UNKNOWN"};
+	}
+
+	if (defined($o_credentialsfile)) {
+        	if( ! -e $o_credentialsfile) {
+                	print "Credentials file parameter specified, but file does not exist!\n";
+                	exit(1);
+        	}
+
+        	if (!open(CFD, '<'.$o_credentialsfile)) {
+                	print "Could not open credentials file: $!\n";
+                	exit(1);
+        	}
+        	# read credentials file and overwrite parameters
+        	while (my $cfd_line = <CFD>) {
+                	chomp($cfd_line);
+                	if($cfd_line =~ /^community:(.+)$/) {
+                        	$o_community = $1;
+                	}
+        	} # else - skip
+	close(CFD);
 	}
 
 	unless (defined($o_host))
